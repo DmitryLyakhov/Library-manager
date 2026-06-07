@@ -85,7 +85,7 @@ def main():
     filter_parser.add_argument("-y", "--year", type=str, default=argparse.SUPPRESS, help="Год издания, допускает одно число")
     filter_parser.add_argument("-rev", "--review", type=str, default=argparse.SUPPRESS, help="Отзыв")
    
-    stack_parser.add_argument("-sdb", "--stack_delete_book", help="Удаление книги из стопки. Передайти номер книги, которую хотите удалить")
+    stack_parser.add_argument("-sdb", "--stack_delete_book", type=int, help="Удаление книги из стопки. Передайти номер книги, которую хотите удалить")
     stack_parser.add_argument("-scr", "--stack_clear", action="store_true", help="Очищение стопки")
 
     archive_parser.add_argument("-aa", "--add_to_archive", help="Принимает расширение файла без точки. Добавление файла произведения в zip-архив библиотеки с которой идет работа в папке с библиотекой. Для добавления поместите файл с названием идентичным с названием книги, с которой работают в настоящий момент, на рабочий стол. Если в названии есть пробелы, замените их на нижнее подчеркивание")
@@ -245,18 +245,15 @@ def main():
                 except UnboundLocalError:
                     print("Библиотека не выбрана")
 
-        elif args.command == "stack":
+        elif args.command == "stack": #TODO deleating second book
             if args.stack_delete_book:
-                i = 0
                 stack_copy = []
                 if len(stack) == 0:
                     print("Стопка пуста")
                 else:
-                    for i in range(1, len(stack)):
+                    for i in range(1, len(stack)+1):
                         if i != args.stack_delete_book:
-                           stack_copy.append(stack[i])
-                        else:
-                            pass
+                           stack_copy.append(stack[i-1])
                     stack = stack_copy
             elif args.stack_clear:
                 stack = []
