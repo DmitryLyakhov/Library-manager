@@ -203,7 +203,7 @@ def main():
                     print("Бибиотека или фильтр не выбраны")
             elif args.library_fetch_book:
                 try:
-                    if list(current_filter.keys()) == ["title", "author"] or ["author", "title"]:
+                    if list(current_filter.keys()) == ["title", "author"] or ["author", "title"]: #TODO checking if only author and title
                         book = current_library.filter_books(**current_filter)
                         if len(book) >= 2:
                             print("Найдено больше одной книги")
@@ -245,7 +245,7 @@ def main():
                 except UnboundLocalError:
                     print("Библиотека не выбрана")
 
-        elif args.command == "stack": #TODO deleating second book
+        elif args.command == "stack":
             if args.stack_delete_book:
                 stack_copy = []
                 if len(stack) == 0:
