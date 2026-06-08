@@ -203,7 +203,7 @@ def main():
                     print("Бибиотека или фильтр не выбраны")
             elif args.library_fetch_book:
                 try:
-                    if list(current_filter.keys()) == ["title", "author"] or ["author", "title"]: #TODO checking if only author and title
+                    if set(list(current_filter.keys())) ==  set(["title", "author"]):
                         book = current_library.filter_books(**current_filter)
                         if len(book) >= 2:
                             print("Найдено больше одной книги")
