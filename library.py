@@ -8,9 +8,9 @@ import heapq
 
 class Book:
     """Репрезентация книи в библиотеке"""
-    GENRES = ["научная фантастика", "ужасы", "вирд", "магический реализм", "мистика", "притча", "детектив", "вестерн", "реализм", "сюрреализм/психоделика", "драма", "юмористическое", "фэнтези", "любовное", "эротическое"]
+    GENRES = ["научная фантастика", "ужасы", "вирд", "готика", "магический реализм", "мистика", "притча", "детектив", "вестерн", "реализм", "сюрреализм/психоделика", "драма", "юмористическое", "фэнтези", "любовное", "эротическое"]
     SUBGENRES = ["твердая фантастика", "гуманитарная фантастика", "темпоральная фантастика", "киберпанк", "космоопера", "постапокалиптика", "антиутопия", "утопия", "латиноамериканский магический реализм", 
-                 "готика", "истории о приведениях", "лавкрафтианский хоррор", "сплаттерпанк", "зомби-хоррор", "психологический хоррор", 
+                "истории о приведениях", "лавкрафтианский хоррор", "сплаттерпанк", "зомби-хоррор", "психологический хоррор", 
                  "эпическое фэнтези", "героическое фэнтези", "городское фэнтези", "темное фэнтези", "научное фэнтези", "нуар"]
     FORMS = ["роман", "повесть", "рассказ", "антология", "стих", "статья"]
     def __init__(self, title, author, form="", genre="", subgenre="", rating=0, year=0, review=""):
@@ -104,6 +104,7 @@ class Library:
             library.save(Library.lib_path / f"{self.name}.xlsx")
     def book_add(self, book):
         wb, ws = self.openlibrary()
+        not_dupl = True
         for i in range(2, ws.max_row+1):
             if book.title == ws.cell(i, 1).value:
                 book_title = book.title
@@ -112,10 +113,12 @@ class Library:
                 book_args = [ws.cell(1, k).value for k in range(3, Library.num_of_book_params+1)]
                 other = dict(zip(book_args, book_elements))
                 BookDupli = Library.create_book_obj(book_title, book_author, **other)
+                not_dupl = False
                 print(f"Книга с таким названием уже есть в библиотеке: {str(BookDupli)}")
         book_row = ws.max_row+1
-        for i in range(1, Library.num_of_book_params+1):
-            ws.cell(book_row, i).value = list(vars(book).values())[i-1]
+        if not_dupl:
+            for i in range(1, Library.num_of_book_params+1):
+                ws.cell(book_row, i).value = list(vars(book).values())[i-1]
         wb.save(Library.lib_path / f"{self.name}.xlsx")
     def filter_books(self, exclusive=False, **kwargs):
         wb, ws = self.openlibrary()

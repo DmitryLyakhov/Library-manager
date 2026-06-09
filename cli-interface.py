@@ -8,6 +8,8 @@ import os
 import zipfile
 import subprocess
 import sys
+from rich.console import Console
+from rich.table import Table
 
 def main():
     intro = f"""
@@ -49,13 +51,14 @@ def main():
     library_parser.add_argument("-cl", "--create_or_choose_library", nargs="+", type=str, help = "Создает новую библиотеку в папке на рабочем столе или работает с уже существующей. Принимает название библиотеки, которое может быть введено без ковычек")
     library_parser.add_argument("-la", "--library_add", action="store_true", help="Добавляет книгу, с которой идет работа, в библиотеку")
     library_parser.add_argument("-lf", "--library_filter", action="store_true", help="Фильтрует библиотеку по фильтру, с которым идет работа")
-    library_parser.add_argument("-lt", "--library_top", help="Возвращает n самых высокооцененных книг, выбранных по фильтру, с которым идет работа")
+    library_parser.add_argument("-lt", "--library_top", type=int, help="Возвращает n самых высокооцененных книг, выбранных по фильтру, с которым идет работа")
     library_parser.add_argument("-ex", "--exclusive", action="store_true", help="В случае, если у произведения указано несколько жанров, поджанров или авторов, фильтрация и поиск самых высокооцененных книг будет производиться строго по указанным в фильтре параметрам. По дефолту выключен")
     library_parser.add_argument("-lfb", "--library_fetch_book", action="store_true", help="Находит и возвращает как настоющую книгу по фильтру, с которым идет работа. Фильтр должен содержать только автора и название")
     library_parser.add_argument("-ldb", "--library_delete_book", action="store_true", help="Удаляет книгу по фильтру, с которым идет работа. Фильтр должен содержать только автора и название")    
     library_parser.add_argument("-lrb", "--library_replace_book", action="store_true", help="Заменяет книгу в библиотеке. Для замены создайте объект книги с нужным названием, автором и харатктеристиками")    
     library_parser.add_argument("-las", "--library_add_stack", action="store_true", help="Добавляет все книги в стопке, с которй сейчас идет работа, в бибиотеку")
     library_parser.add_argument("-lrn", "--library_rename", help="Переименовывает библиотеку, с которой совершается работа; введите новое название")
+    library_parser.add_argument("-tf", "--table_format", action="store_true", help="Выводит результат фильтрации в виде таблицы")
 
     bookcreate_parser.add_argument("-t", "--title", type=str, required=True, help="Название произведения.")
     bookcreate_parser.add_argument("-a", "--author", type=str, required=True, help="Автор произведения. Несколько авторов вводите через запятую.")
@@ -93,8 +96,11 @@ def main():
     archive_parser.add_argument("-cia", "--check_in_archive", action="store_true", help="Проверяет, есть ли книга в архиве библиотеки с которйо идет работа по названию книги, с которой идет работа") 
     
     book_fields = ["title", "author", "form", "genre", "subgenre", "rating", "year", "review"]
+    book_fields_ru = ["название", "автор(ы)", "жанр(ы)", "поджанр(ы)", "форма", "оценка", "год написания", "отзыв"]
     
     stack = []
+    
+    console = Console()
     
     while True:
         line = input("> ").strip()
@@ -144,7 +150,7 @@ def main():
         elif args.exit_programm:
             break
   
-        if args.command == "mkbook":
+        if args.command == "mkbook": #TODO на случай ValueError не закрытое цитирование 
             arguments_book = {key: vars(args)[key] for key in book_fields if (key in vars(args) and key != "stack")}
             current_book = Book(**arguments_book)
             if args.stack:
@@ -189,11 +195,21 @@ def main():
                         print("Не удалось найти книги, удовлетворяющие запросу")
                     else:
                         print(f"{'Удалось найти одну книгу' if len(books) == 1 else 'Удалось найти следующие книги:'}")
-                        for book in books:
-                            print(book)
+                        if args.table_format:
+                            table_filtered = Table(show_lines=True)
+                            for field in book_fields_ru:
+                                table_filtered.add_column(field)
+                            for book in books:
+                                table_filtered.add_row(book.title, book.author, book.genre if book.genre not in ("", None) else 'не указан(ы)', 
+                                book.subgenre if book.subgenre not in ("", None) else 'не указан(ы)', book.form if book.form not in ("", None) else 'не указана', 
+                                str(book.rating), str(book.year) if book.year != 0 else 'не указан', book.review if book.review not in ("", None) else 'не указан')
+                            console.print(table_filtered)
+                        else:
+                            for book in books:
+                                print(book)     
                 except NameError:
                     print("Библиотека или фильтр не выбраны")
-            elif args.library_top:
+            elif args.library_top: #TODO add table
                 try:
                     if args.exclusive:
                         current_library.finding_top(exclusive=True, top=args.library_top, **current_filter)
