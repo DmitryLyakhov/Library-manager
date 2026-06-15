@@ -110,6 +110,9 @@ def main():
             args = parser.parse_args(shlex.split(line))
         except SystemExit:
             continue
+        except ValueError:
+            print("Вы забыли закрыть кавычки")
+            continue
         
 
         if args.show_libraries:
