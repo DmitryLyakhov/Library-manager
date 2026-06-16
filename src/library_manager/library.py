@@ -3,16 +3,19 @@
 import openpyxl
 import pathlib
 import heapq
+from pathlib import Path
+import json
 
 """Домашняя библиотека"""   
 
 class Book:
-    """Репрезентация книи в библиотеке"""
-    GENRES = ["научная фантастика", "ужасы", "вирд", "готика", "магический реализм", "мистика", "притча", "детектив", "вестерн", "реализм", "сюрреализм/психоделика", "драма", "юмористическое", "фэнтези", "любовное", "эротическое"]
-    SUBGENRES = ["твердая фантастика", "гуманитарная фантастика", "темпоральная фантастика", "киберпанк", "космоопера", "постапокалиптика", "антиутопия", "утопия", "латиноамериканский магический реализм", 
-                "истории о приведениях", "лавкрафтианский хоррор", "сплаттерпанк", "зомби-хоррор", "психологический хоррор", 
-                 "эпическое фэнтези", "героическое фэнтези", "городское фэнтези", "темное фэнтези", "научное фэнтези", "нуар"]
-    FORMS = ["роман", "повесть", "рассказ", "антология", "стих", "статья"]
+    """Репрезентация книги в библиотеке"""
+    json_path = Path(__file__).parent / 'genres.json'
+    with open("book_chars.json", "r") as file:
+        book_chars = json.load(file)
+    GENRES = book_chars["GENRES"]
+    SUBGENRES = book_chars["SUBGENRES"]
+    FORMS = book_chars["FORMS"]
     def __init__(self, title, author, form="", genre="", subgenre="", rating=0, year=0, review=""):
         Book.CheckingRating(rating)
         Book.CheckingGenre(genre)
@@ -85,6 +88,14 @@ class Book:
             form = ""
         if form not in Book.FORMS and form != "":
             print("Неизвестная форма")
+    @classmethod
+    def update_chars(cls):
+        chars_path = Path(__file__).parent / 'book_chars.json'
+        with open(chars_path, "r") as file:
+            book_chars = json.load(file)
+        cls.GENRES = book_chars["GENRES"]
+        cls.SUBGENRES = book_chars["SUBGENRES"]
+        cls.FORMS = book_chars["FORMS"]
         
   
 class Library: 
@@ -198,4 +209,7 @@ class Library:
         ws = wb.active
         return wb, ws
     def create_book_obj(title, author, **kwargs):
-        return Book(title, author, **kwargs)        
+        return Book(title, author, **kwargs)  
+
+if __name__ == "__main__":
+    book = Book("a", "b", form="стих")

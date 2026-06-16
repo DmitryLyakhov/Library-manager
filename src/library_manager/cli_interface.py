@@ -10,6 +10,7 @@ import subprocess
 import sys
 from rich.console import Console
 from rich.table import Table
+import json
 
 def main():
     intro = f"""
