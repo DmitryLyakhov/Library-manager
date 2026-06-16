@@ -3,15 +3,15 @@
 import openpyxl
 import pathlib
 import heapq
-from pathlib import Path
+from importlib import resources
 import json
 
 """Домашняя библиотека"""   
 
 class Book:
     """Репрезентация книги в библиотеке"""
-    json_path = Path(__file__).parent / 'genres.json'
-    with open("book_chars.json", "r") as file:
+    json_path = resources.files('library_manager') / 'book_chars.json'
+    with json_path.open("r", encoding="utf-8") as file:
         book_chars = json.load(file)
     GENRES = book_chars["GENRES"]
     SUBGENRES = book_chars["SUBGENRES"]
@@ -90,8 +90,8 @@ class Book:
             print("Неизвестная форма")
     @classmethod
     def update_chars(cls):
-        chars_path = Path(__file__).parent / 'book_chars.json'
-        with open(chars_path, "r") as file:
+        json_path = resources.files('library_manager') / 'book_chars.json'
+        with json_path.open("r", encoding="utf-8") as file:
             book_chars = json.load(file)
         cls.GENRES = book_chars["GENRES"]
         cls.SUBGENRES = book_chars["SUBGENRES"]
@@ -202,8 +202,7 @@ class Library:
     def finding_top(self, top=10, exclusive=False, **kwargs):
         books = self.filter_books(exclusive = exclusive, **kwargs)
         top_books = heapq.nlargest(top, books, key = lambda book: book.rating)
-        for top in top_books:
-            print(top)
+        return top_books
     def openlibrary(self):
         wb = openpyxl.load_workbook(Library.lib_path / f"{self.name}.xlsx")
         ws = wb.active

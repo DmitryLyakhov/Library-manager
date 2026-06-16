@@ -10,6 +10,7 @@ import subprocess
 import sys
 from rich.console import Console
 from rich.table import Table
+from importlib import resources
 import json
 
 def main():
@@ -23,10 +24,6 @@ def main():
     Вы зашли в менеджер личной библиотеки.
     Пока доступно создание только excel-библиотек
     Для помощи введите -h. Для помощи по коммандам введите command_name -h. Опции вводятся в ковычках, кроме случаев, когда используются числа.
-    Для удобства возможные жанры, поджанры и типы произведений органичены:
-    жанры - {", ".join(Book.GENRES)}
-    поджанры - {", ".join(Book.SUBGENRES)}
-    типы - {", ".join(Book.FORMS)}
     """
     
     print(intro)
@@ -41,6 +38,7 @@ def main():
     book_parser = subparser.add_parser("book", help="Обновление харатеристик книги, с которой идет работа")
     stack_parser = subparser.add_parser("stack", help="Работа со стопкой книг")
     archive_parser = subparser.add_parser("archive", help="Работа с zip-архивом при библиотеке")
+    bookchars_parser = subparser.add_parser("book_chars", help="Работа с доступными жанром, поджанром и типом произведения")
     
     parser.add_argument("-sl", "--show_libraries", action="store_true", help="Показывает все библиотеки пользователя")
     parser.add_argument("-curl", "--current_library", action="store_true", help="Показывает библиотеку, с которой идет работа")
@@ -59,7 +57,7 @@ def main():
     library_parser.add_argument("-lrb", "--library_replace_book", action="store_true", help="Заменяет книгу в библиотеке. Для замены создайте объект книги с нужным названием, автором и харатктеристиками")    
     library_parser.add_argument("-las", "--library_add_stack", action="store_true", help="Добавляет все книги в стопке, с которй сейчас идет работа, в бибиотеку")
     library_parser.add_argument("-lrn", "--library_rename", help="Переименовывает библиотеку, с которой совершается работа; введите новое название")
-    library_parser.add_argument("-tf", "--table_format", action="store_true", help="Выводит результат фильтрации в виде таблицы")
+    library_parser.add_argument("-tf", "--table_format", action="store_true", help="Выводит результат фильтрации и нахождения лучших в виде таблицы")
 
     bookcreate_parser.add_argument("-t", "--title", type=str, required=True, help="Название произведения.")
     bookcreate_parser.add_argument("-a", "--author", type=str, required=True, help="Автор произведения. Несколько авторов вводите через запятую.")
@@ -96,10 +94,22 @@ def main():
     archive_parser.add_argument("-ra", "--read_from_archive", action="store_true",  help="Создает копию файла из архива библиотеки с которой идет работа с названием как у книги, с которой идет работа, и открывает ее")
     archive_parser.add_argument("-cia", "--check_in_archive", action="store_true", help="Проверяет, есть ли книга в архиве библиотеки с которйо идет работа по названию книги, с которой идет работа") 
     
+    bookchars_parser.add_argument("-cg", "--current_genres", action="store_true", help="Возвращает доступные на данный момент жанры")
+    bookchars_parser.add_argument("-csg", "--current_subgenres", action="store_true", help="Возвращает доступные на данный момент поджанры")
+    bookchars_parser.add_argument("-cf", "--current_forms", action="store_true", help="Возвращает доступные на данный момент формы")
+    bookchars_parser.add_argument("-ag", "--add_genre", help="Добавляет новый жанр в доступные. Чтобы добавить несколько, введите их речез запятую")
+    bookchars_parser.add_argument("-asg", "--add_subgenre", help="Добавляет новый поджанр в доступные. Чтобы добавить несколько, введите их речез запятую")
+    bookchars_parser.add_argument("-af", "--add_form", help="Добавляет новую форму в доступные. Чтобы добавить несколько, введите их речез запятую")
+    bookchars_parser.add_argument("-dg", "--delete_genre", help="Удаляет жанр из доступных. Чтобы добавить несколько, введите их речез запятую")
+    bookchars_parser.add_argument("-dsg", "--delete_subgenre", help="Удаляет поджанр из доступных. Чтобы добавить несколько, введите их речез запятую")
+    bookchars_parser.add_argument("-df", "--delete_form", help="Удаляет из формы доступных. Чтобы добавить несколько, введите их речез запятую")
+    bookchars_parser.add_argument("-rdg", "--reset_to_default_genres", help="Возвращает доступные жанры, поджанры и формы к дефолту, введите genres, subgenres или forms соотвественно")
+    
     book_fields = ["title", "author", "form", "genre", "subgenre", "rating", "year", "review"]
     book_fields_ru = ["название", "автор(ы)", "жанр(ы)", "поджанр(ы)", "форма", "оценка", "год написания", "отзыв"]
     
     stack = []
+
     
     console = Console()
     
@@ -154,7 +164,7 @@ def main():
         elif args.exit_programm:
             break
   
-        if args.command == "mkbook": #TODO на случай ValueError не закрытое цитирование 
+        if args.command == "mkbook":
             arguments_book = {key: vars(args)[key] for key in book_fields if (key in vars(args) and key != "stack")}
             current_book = Book(**arguments_book)
             if args.stack:
@@ -213,12 +223,28 @@ def main():
                                 print(book)     
                 except NameError:
                     print("Библиотека или фильтр не выбраны")
-            elif args.library_top: #TODO add table
+            elif args.library_top:
                 try:
                     if args.exclusive:
-                        current_library.finding_top(exclusive=True, top=args.library_top, **current_filter)
+                        top_books = current_library.finding_top(exclusive=True, top=args.library_top, **current_filter)
                     else:
-                        current_library.finding_top(top=args.library_top, **current_filter)
+                        top_books = current_library.finding_top(top=args.library_top, **current_filter)
+                    if len(top_books) == 0:
+                        print("Не удалось найти книги, удовлетворяющие запросу")
+                    else:
+                        print(f"{'Удалось найти одну книгу' if len(books) == 1 else 'Удалось найти следующие книги:'}")
+                        if args.table_format:
+                            table_top = Table(show_lines=True)
+                            for field in book_fields_ru:
+                                table_top.add_column(field)
+                            for book in top_books:
+                                table_top.add_row(book.title, book.author, book.genre if book.genre not in ("", None) else 'не указан(ы)', 
+                                book.subgenre if book.subgenre not in ("", None) else 'не указан(ы)', book.form if book.form not in ("", None) else 'не указана', 
+                                str(book.rating), str(book.year) if book.year != 0 else 'не указан', book.review if book.review not in ("", None) else 'не указан')
+                            console.print(table_top)
+                        else:
+                            for book in top_books:
+                                print(book) 
                 except NameError:
                     print("Бибиотека или фильтр не выбраны")
             elif args.library_fetch_book:
@@ -332,6 +358,105 @@ def main():
                         print("Библиотека или книга не выбраны")
                     elif FileNotFoundError:
                         print("Тексты пока не добавлены в архив")
+        elif args.command == "book_chars":
+            json_path = resources.files('library_manager') / 'book_chars.json'
+            
+            def adding_book_chars(form, to_add, add_singular, add_plural):
+                change = True
+                with json_path.open("r", encoding="utf-8") as file:
+                    book_chars = json.load(file)
+                if len(to_add) == 1:
+                    if to_add[0] in book_chars[form]:
+                        change = False
+                        print(f"Такой(ая) {add_singular} уже есть")
+                    else:
+                        book_chars[form].append(to_add[0])
+                else:
+                    same = list(set(book_chars[form]) & set(to_add))
+                    if len(same) == 0:
+                        book_chars[form].extend(to_add)
+                    else:
+                        to_add_final = [elem for elem in to_add if elem not in same]
+                        if to_add_final:
+                            book_chars[form].extend(to_add_final)
+                            print(f"Уже доступные {add_plural} исключены из добавления: {same}")
+                        else:
+                            change = False
+                            print(f"Все введенные {add_plural} уже доступны")
+                if change:
+                    with json_path.open("w", encoding="utf-8") as file:
+                        json.dump(book_chars, file, ensure_ascii=False)
+                    Book.update_chars()
+                    
+            def deleting_book_chars(form, to_delete, delete_singular, delete_plural):
+                change = True
+                with json_path.open("r", encoding="utf-8") as file:
+                    book_chars = json.load(file)
+                if len(to_delete) == 1:
+                    if to_delete[0] not in book_chars[form]:
+                        print(f"Такого(ой) {delete_singular} нет среди доступных")
+                        change = False
+                    else:
+                        book_chars[form].remove(to_delete[0])
+                else:
+                    same = list(set(book_chars[form]) & set(to_delete))
+                    if len(same) == len(to_delete):
+                        for el in same:
+                            book_chars[form].remove(el)
+                    else:
+                        to_delete_final = [genre for genre in to_delete if genre in same]
+                        if to_delete_final:
+                            different = [genre for genre in to_delete if genre not in same]
+                            for el in to_delete_final:
+                                book_chars[form].remove(el)
+                            print(f"Не существующие {delete_plural} не удалены: {different}")
+                        else:
+                            change = False
+                            print(f"Указанные {delete_plural} недоступны")
+                if change:
+                    with json_path.open("w", encoding="utf-8") as file:
+                        json.dump(book_chars, file, ensure_ascii=False)
+                    Book.update_chars()
+                    
+            def resetting_to_default(form):
+                with json_path.open("r", encoding="utf-8") as file:
+                    book_chars = json.load(file)
+                book_chars[form] = book_chars[f"{form}_OG"]
+                with json_path.open("w", encoding="utf-8") as file:
+                    json.dump(book_chars, file, ensure_ascii=False)
+                Book.update_chars()
+                
+            if args.current_genres:
+                print(f"Допустимые на данный момент жанры:\n{', '.join(Book.GENRES)}")
+            elif args.current_subgenres:
+                print(f"Допустимые на данный момент поджанры:\n{', '.join(Book.SUBGENRES)}")
+            elif args.current_forms:
+                print(f"Допустимые на данный момент формы:\n{', '.join(Book.FORMS)}")
+            elif args.add_genre:
+                genre_to_add = [el.strip(" ").lower() for el in args.add_genre.split(",")]
+                adding_book_chars("GENRES", genre_to_add, "жанр", "жанры")
+            elif args.add_subgenre:
+                subgenre_to_add = [el.strip(" ").lower() for el in args.add_subgenre.split(",")]
+                adding_book_chars("SUBGENRES", subgenre_to_add, "поджанр", "поджанры")
+            elif args.add_form:
+                form_to_add = [el.strip(" ").lower() for el in args.add_form.split(",")]
+                adding_book_chars("FORMS", form_to_add, "форма", "формы")
+            elif args.delete_genre: 
+                genre_to_delete = [el.strip(" ").lower() for el in args.delete_genre.split(",")]
+                deleting_book_chars("GENRES", genre_to_delete, "жанр", "жанры")
+            elif args.delete_subgenre:
+                subgenre_to_delete = [el.strip(" ").lower() for el in args.delete_subgenre.split(",")]
+                deleting_book_chars("SUBGENRES", subgenre_to_delete, "поджанр", "поджанры")
+            elif args.delete_form:
+                form_to_delete = [el.strip(" ").lower() for el in args.delete_form.split(",")]
+                deleting_book_chars("FORMS", form_to_delete, "форма", "формы")
+            elif args.reset_to_default:
+                if args.reset_to_default.upper() in ["GENRES", "SUBGENRES", "FORMS"]:
+                    resetting_to_default(args.reset_to_default.upper)
+                else:
+                    print("Введено некорректное значение")
+            
+                
           
 if __name__ == "__main__":
     main()
