@@ -33,6 +33,7 @@ def main():
     parser = argparse.ArgumentParser(description=description)
     subparser = parser.add_subparsers(dest="command")
     library_parser = subparser.add_parser("library", help="Комманда для работы с библиотекой")
+    sharing_parser = subparser.add_parser("sharing", help="Комманда для того, чтобы поделиться фильтрованными книгами. Создает список или zip-файл")
     bookcreate_parser = subparser.add_parser("mkbook", help=book_help)
     filter_parser = subparser.add_parser("filter_set", help="Фильтр для поиска книги")
     book_parser = subparser.add_parser("book", help="Обновление харатеристик книги, с которой идет работа")
@@ -58,6 +59,11 @@ def main():
     library_parser.add_argument("-las", "--library_add_stack", action="store_true", help="Добавляет все книги в стопке, с которй сейчас идет работа, в бибиотеку")
     library_parser.add_argument("-lrn", "--library_rename", help="Переименовывает библиотеку, с которой совершается работа; введите новое название")
     library_parser.add_argument("-tf", "--table_format", action="store_true", help="Выводит результат фильтрации и нахождения лучших в виде таблицы")
+
+    sharing_parser.add_argument("-ct", "--create_txt", help="Создает txt-файл с результатами фильтрафии. Принимает название. По умолчанию содержит только автора и название")
+    sharing_parser.add_argument("-ex", "--exclusive", action="store_true", help="В txt-файл или в txt-файл в zip-файле записываются результаты эксклюзивного поиска")
+    sharing_parser.add_argument("-v", "--verbouse", action ="store_true", help="Добавляет полные характеристики книги (жанры, отзыв и тд) в txt-файл или txt-файл в zip-файле")
+    sharing_parser.add_argument("-st", "--share_with_text", help="Создает zip-файл с txt_файлом и содержащимися в архиве текстами из числа отфильтрованных. Принимает название zip-файла")
 
     bookcreate_parser.add_argument("-t", "--title", type=str, required=True, help="Название произведения.")
     bookcreate_parser.add_argument("-a", "--author", type=str, required=True, help="Автор произведения. Несколько авторов вводите через запятую.")
@@ -290,6 +296,44 @@ def main():
                     pathlib.Path(pathlib.Path.home() / f"Desktop/home_library/{current_library.name}.xlsx").rename(pathlib.Path.home() / f"Desktop/home_library/{args.library_rename}.xlsx")
                 except UnboundLocalError:
                     print("Библиотека не выбрана")
+                    
+        elif args.command == "sharing":
+            try:
+                if args.exclusive:
+                    books = current_library.filter_books(exclusive=True, **current_filter)
+                else:
+                    books = current_library.filter_books(**current_filter)
+                if args.create_txt:
+                    path = pathlib.Path.home() / f"Desktop/{args.create_txt}.txt"
+                    if args.verbouse:
+                        with open(path, "w") as file:
+                            for book in books:
+                                file.write(f"{str(book)}\n")
+                    else:
+                        with open(path, "w") as file:
+                            for book in books:
+                                file.write(f"{book.author}. {book.title}\n")
+                elif args.share_with_text:
+                    txt_content = ""
+                    if args.verbouse:
+                        for book in books:
+                            txt_content = txt_content + str(book) + "\n"
+                    else:
+                        for book in books:
+                            to_append = f"{book.author}. {book.title}"
+                            txt_content = txt_content + to_append + "\n"
+                    path = pathlib.Path.home() / f"Desktop/home_library/{current_library.name}_archive.zip"
+                    path_to_new = pathlib.Path.home() / f"Desktop/{args.share_with_text}.zip"
+                    with zipfile.ZipFile(path, "r") as archive, zipfile.ZipFile(path_to_new, "w") as new_zip:
+                        list_to_write = [book.title.replace(" ", "_") for book in books]
+                        for name_to_write in list_to_write:
+                            for file_temp in archive.namelist():
+                                if pathlib.Path(file_temp).stem == name_to_write:
+                                    file_data = archive.read(file_temp)
+                                    new_zip.writestr(file_temp, file_data)
+                        new_zip.writestr("Список литературы.txt", txt_content)
+            except NameError:
+                print(1)
 
         elif args.command == "stack":
             if args.stack_delete_book:
@@ -358,6 +402,7 @@ def main():
                         print("Библиотека или книга не выбраны")
                     elif FileNotFoundError:
                         print("Тексты пока не добавлены в архив")
+                        
         elif args.command == "book_chars":
             json_path = resources.files('library_manager') / 'book_chars.json'
             
