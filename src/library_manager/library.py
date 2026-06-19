@@ -1,12 +1,12 @@
 #!/user/bin/env python3
 
+"""Репрезентация книги и excel-библиотеки"""   
+
 import openpyxl
 import pathlib
 import heapq
 from importlib import resources
 import json
-
-"""Домашняя библиотека"""   
 
 class Book:
     """Репрезентация книги в библиотеке"""
@@ -16,7 +16,7 @@ class Book:
     GENRES = book_chars["GENRES"]
     SUBGENRES = book_chars["SUBGENRES"]
     FORMS = book_chars["FORMS"]
-    def __init__(self, title, author, form="", genre="", subgenre="", rating=0, year=0, review=""):
+    def __init__(self, title: str, author: str, form: str = "", genre: str = "", subgenre: str = "", rating: int | float = 0, year: int = 0, review: str = "") -> None:
         Book.CheckingRating(rating)
         Book.CheckingGenre(genre)
         Book.CheckingSubgenre(subgenre)
@@ -29,37 +29,39 @@ class Book:
         self.rating = rating
         self.year = year
         self.review = review
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (f"Title - {self.title}, author - {self.author}, form - {self.form}, " 
         f"genre - {self.genre}, rating - {self.rating}, year - {self.year}")
-    def __str__(self):
+    def __str__(self) -> str:
         return (f"{self.title}, за авторством {self.author}. {self.genre if self.genre not in ("", None) else 'жанр(ы) не указан(ы)'}, " 
         f"{self.subgenre if self.subgenre not in ("", None) else 'поджанр(ы) не указан(ы)'}; " f"{self.form if self.form not in ("", None) else 'форма не указана'}. Оценка - {self.rating}. "
         f"Год - {self.year if self.year != 0 else 'не указан'}\nотзыв - {self.review if self.review not in ("", None) else 'не указан'}")
-    def title_update(self, title):
+    def title_update(self, title: str) -> None:
         self.title = title
-    def author_update(self, author):
+    def author_update(self, author: str) -> None:
         self.author = author
-    def form_update(self, form):
+    def form_update(self, form: str) -> None:
         Book.CheckingForm(form)
         self.form = form
-    def genre_update(self, genre):
+    def genre_update(self, genre: str) -> None:
         Book.CheckingGenre(genre)
         self.genre = genre
-    def rating_update(self, rating):
+    def rating_update(self, rating: int | float) -> None:
         Book.CheckingRating(rating)
         self.rating = rating
-    def year_update(self, year):
+    def year_update(self, year: int) -> None:
         self.year = year
-    def review_update(self, review):
+    def review_update(self, review: str) -> None:
         self.review = review
-    def subgenre_update(self, subgenre):
+    def subgenre_update(self, subgenre: str) -> None:
         Book.CheckingSubgenre(subgenre)
         self.subgenre = subgenre
-    def CheckingRating(rating):
+    @staticmethod
+    def CheckingRating(rating: int) -> None:
         if not isinstance(rating, (int, float)) or (rating>10 or rating<0):
             print("Оценка должна быть в диапазоне от 0 до 10 включительно")
-    def CheckingGenre(genre):
+    @staticmethod
+    def CheckingGenre(genre: str) -> None:
         if genre is None:
             genre = ""
         if genre != "":
@@ -71,7 +73,8 @@ class Book:
             else:
                 if genre_splitted[0] not in Book.GENRES and genre != "":
                     print("Неизвесный(е) жарнр(ы)")
-    def CheckingSubgenre(subgenre):
+    @staticmethod
+    def CheckingSubgenre(subgenre: str) -> None:
         if subgenre is None:
             subgenre = ""
         if subgenre != "":
@@ -83,13 +86,14 @@ class Book:
             else:
                 if subgenre_splitted[0] not in Book.SUBGENRES and subgenre != "":
                     print("Неизвесный(е) поджарнр(ы)")
-    def CheckingForm(form):
+    @staticmethod
+    def CheckingForm(form: str) -> None:
         if form is None:
             form = ""
         if form not in Book.FORMS and form != "":
             print("Неизвестная форма")
     @classmethod
-    def update_chars(cls):
+    def update_chars(cls) -> None:
         json_path = resources.files('library_manager') / 'book_chars.json'
         with json_path.open("r", encoding="utf-8") as file:
             book_chars = json.load(file)
@@ -102,7 +106,7 @@ class Library:
     lib_path = pathlib.Path.home() / "Desktop/home_library"
     book_dummy = Book("a", "b")
     num_of_book_params = len(list(vars(book_dummy).keys()))
-    def __init__(self, name):
+    def __init__(self, name: str) -> None:
         self.name = name
         pathlib.Path(Library.lib_path).mkdir(exist_ok=True)
         if (Library.lib_path / f"{name}.xlsx").is_file():
@@ -113,7 +117,7 @@ class Library:
             for i in range (1, Library.num_of_book_params+1):
                 ws.cell(1, i).value = list(vars(Library.book_dummy).keys())[i-1]
             library.save(Library.lib_path / f"{self.name}.xlsx")
-    def book_add(self, book):
+    def book_add(self, book: Book) -> None:
         wb, ws = self.openlibrary()
         not_dupl = True
         for i in range(2, ws.max_row+1):
@@ -131,7 +135,7 @@ class Library:
             for i in range(1, Library.num_of_book_params+1):
                 ws.cell(book_row, i).value = list(vars(book).values())[i-1]
         wb.save(Library.lib_path / f"{self.name}.xlsx")
-    def filter_books(self, exclusive=False, **kwargs):
+    def filter_books(self, exclusive: bool = False, **kwargs: str | int | float) -> list[Book]:
         wb, ws = self.openlibrary()
         elements_of_search = list(kwargs.keys())
         values_to_search = list(kwargs.values())
@@ -145,7 +149,7 @@ class Library:
             counter = 0
             for elem in rows_needed:
                 try: 
-                    val_sep = [int(el.strip()) for el in values_to_search[counter].split(",")]
+                    val_sep = [float(values_to_search[counter])]
                 except ValueError:
                     val_sep = [el.strip() for el in values_to_search[counter].split(",")]
                 cell_value = ws.cell(i, elem).value
@@ -173,7 +177,7 @@ class Library:
                 books.append(BookFetched)
         wb.save(Library.lib_path / f"{self.name}.xlsx")
         return books
-    def delete_book(self, **kwargs): #словарь где ключи - title, значения - author
+    def delete_book(self, **kwargs: str) -> None: #словарь где ключи - title, значения - author
         wb, ws = self.openlibrary()
         titles = list(kwargs.keys())
         authors = list(kwargs.values())
@@ -185,7 +189,7 @@ class Library:
         for row in indexes[::-1]:
             ws.delete_rows(row)
         wb.save(Library.lib_path / f"{self.name}.xlsx")
-    def replace_book(self, book):
+    def replace_book(self, book: Book) -> None:
         wb, ws = Library.openlibrary(self)
         row = []
         for i in range(1, ws.max_row+1):
@@ -199,16 +203,14 @@ class Library:
             for i in range(1, Library.num_of_book_params+1):
                 ws.cell(row[0], i).value = list(vars(book).values())[i-1]
         wb.save(Library.lib_path / f"{self.name}.xlsx")
-    def finding_top(self, top=10, exclusive=False, **kwargs):
+    def finding_top(self, top: int = 10, exclusive: bool = False, **kwargs: str | int | float) -> list[Book]:
         books = self.filter_books(exclusive = exclusive, **kwargs)
         top_books = heapq.nlargest(top, books, key = lambda book: book.rating)
         return top_books
-    def openlibrary(self):
+    def openlibrary(self) -> tuple[openpyxl.Workbook, openpyxl.Worksheet]:
         wb = openpyxl.load_workbook(Library.lib_path / f"{self.name}.xlsx")
         ws = wb.active
         return wb, ws
-    def create_book_obj(title, author, **kwargs):
+    @staticmethod
+    def create_book_obj(title: str, author: str, **kwargs: str | int | float) -> Book:
         return Book(title, author, **kwargs)  
-
-if __name__ == "__main__":
-    book = Book("a", "b", form="стих")

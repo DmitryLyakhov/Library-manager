@@ -46,7 +46,7 @@ def main():
     parser.add_argument("-curb", "--current_book", action="store_true", help="Показывает книгу, с которой идет работа")
     parser.add_argument("-curf", "--current_filter", action="store_true", help="Показывает фильтр, с которым идет работа")
     parser.add_argument("-curs", "--current_stack", action="store_true", help="Показывает стопку книг, с которой идет работа")
-    parser.add_argument("-exit", "--exit_programm", action="store_true", help="Выход из программы")
+    parser.add_argument("-q", "--quit_programm", action="store_true", help="Выход из программы")
     
     library_parser.add_argument("-cl", "--create_or_choose_library", nargs="+", type=str, help = "Создает новую библиотеку в папке на рабочем столе или работает с уже существующей. Принимает название библиотеки, которое может быть введено без ковычек")
     library_parser.add_argument("-la", "--library_add", action="store_true", help="Добавляет книгу, с которой идет работа, в библиотеку")
@@ -70,7 +70,7 @@ def main():
     bookcreate_parser.add_argument("-f", "--form", type=str, default=argparse.SUPPRESS, help="Форма. Допускает строго одино значение.")
     bookcreate_parser.add_argument("-g", "--genre", type=str, default=argparse.SUPPRESS, help="Жанр. Несколько жанров вводите через запятую.")
     bookcreate_parser.add_argument("-sg", "--subgenre", type=str, default=argparse.SUPPRESS, help="Поджанр. Несколько поджанров вводите через запятую.")
-    bookcreate_parser.add_argument("-r", "--rating", type=int, default=argparse.SUPPRESS, help="Оценка. Допускает число от 0 до 10.")
+    bookcreate_parser.add_argument("-r", "--rating", type=float, default=argparse.SUPPRESS, help="Оценка. Допускает число от 0 до 10.")
     bookcreate_parser.add_argument("-y", "--year", type=int, default=argparse.SUPPRESS, help="Год издания, допускает одно число")
     bookcreate_parser.add_argument("-rev", "--review", type=str, default=argparse.SUPPRESS, help="Отзыв")
     bookcreate_parser.add_argument("-st", "--stack", action="store_true", default=None, help = "Добавление созданной книги в стопку")
@@ -80,7 +80,7 @@ def main():
     book_parser.add_argument("-fu", "--update_form", type=str, default=None, help="Форма. Допускает строго одино значение.")
     book_parser.add_argument("-gu", "--update_genre", type=str, default=None, help="Жанр. Несколько жанров вводите через запятую.")
     book_parser.add_argument("-sgu", "--update_subgenre", type=str, default=None, help="Поджанр. Несколько поджанров вводите через запятую.")
-    book_parser.add_argument("-ru", "--update_rating", type=int, default=None, help="Оценка. Допускает число от 0 до 10.")
+    book_parser.add_argument("-ru", "--update_rating", type=float, default=None, help="Оценка. Допускает число от 0 до 10.")
     book_parser.add_argument("-yu", "--update_year", type=int, default=None, help="Год издания, допускает одно число")
     book_parser.add_argument("-revu", "--update_review", type=str, default=None, help="Отзыв")
     
@@ -167,7 +167,7 @@ def main():
                 for stak_elem in stack:
                     print(f"{i}. {stak_elem}")
                     i += 1
-        elif args.exit_programm:
+        elif args.quit_programm:
             break
   
         if args.command == "mkbook":
@@ -333,7 +333,7 @@ def main():
                                     new_zip.writestr(file_temp, file_data)
                         new_zip.writestr("Список литературы.txt", txt_content)
             except NameError:
-                print(1)
+                print("Библиотека или фильтр не выбраны")
 
         elif args.command == "stack":
             if args.stack_delete_book:
@@ -406,7 +406,7 @@ def main():
         elif args.command == "book_chars":
             json_path = resources.files('library_manager') / 'book_chars.json'
             
-            def adding_book_chars(form, to_add, add_singular, add_plural):
+            def adding_book_chars(form: str, to_add: list, add_singular: str, add_plural: str) -> None:
                 change = True
                 with json_path.open("r", encoding="utf-8") as file:
                     book_chars = json.load(file)
@@ -433,7 +433,7 @@ def main():
                         json.dump(book_chars, file, ensure_ascii=False)
                     Book.update_chars()
                     
-            def deleting_book_chars(form, to_delete, delete_singular, delete_plural):
+            def deleting_book_chars(form: str, to_delete: list, delete_singular: str, delete_plural: str) -> None:
                 change = True
                 with json_path.open("r", encoding="utf-8") as file:
                     book_chars = json.load(file)
@@ -463,7 +463,7 @@ def main():
                         json.dump(book_chars, file, ensure_ascii=False)
                     Book.update_chars()
                     
-            def resetting_to_default(form):
+            def resetting_to_default(form: str) -> None:
                 with json_path.open("r", encoding="utf-8") as file:
                     book_chars = json.load(file)
                 book_chars[form] = book_chars[f"{form}_OG"]
@@ -497,7 +497,7 @@ def main():
                 deleting_book_chars("FORMS", form_to_delete, "форма", "формы")
             elif args.reset_to_default:
                 if args.reset_to_default.upper() in ["GENRES", "SUBGENRES", "FORMS"]:
-                    resetting_to_default(args.reset_to_default.upper)
+                    resetting_to_default(args.reset_to_default.upper())
                 else:
                     print("Введено некорректное значение")
             
