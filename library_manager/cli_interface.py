@@ -1,6 +1,10 @@
 #!/user/bin/env python3
 
-from .library import Book, Library
+from .library_classes import Book, Library
+from .misc_functions import is_initialized
+from .misc_functions import stack_delete_book
+from .misc_functions import add_to_archive, read_from_archive, check_in_archive
+from .misc_functions import json_path, adding_book_chars, deleting_book_chars, resetting_to_default
 import argparse
 import pathlib
 import shlex
@@ -13,8 +17,11 @@ from rich.table import Table
 from importlib import resources
 import json
 
+
+#TODO Фильтр по диапазону рейтинга и года
+
 def main():
-    intro = f"""
+    intro = """
      ______________________
     /                      \\
     ========================
@@ -103,20 +110,18 @@ def main():
     bookchars_parser.add_argument("-cg", "--current_genres", action="store_true", help="Возвращает доступные на данный момент жанры")
     bookchars_parser.add_argument("-csg", "--current_subgenres", action="store_true", help="Возвращает доступные на данный момент поджанры")
     bookchars_parser.add_argument("-cf", "--current_forms", action="store_true", help="Возвращает доступные на данный момент формы")
-    bookchars_parser.add_argument("-ag", "--add_genre", help="Добавляет новый жанр в доступные. Чтобы добавить несколько, введите их речез запятую")
-    bookchars_parser.add_argument("-asg", "--add_subgenre", help="Добавляет новый поджанр в доступные. Чтобы добавить несколько, введите их речез запятую")
-    bookchars_parser.add_argument("-af", "--add_form", help="Добавляет новую форму в доступные. Чтобы добавить несколько, введите их речез запятую")
-    bookchars_parser.add_argument("-dg", "--delete_genre", help="Удаляет жанр из доступных. Чтобы добавить несколько, введите их речез запятую")
-    bookchars_parser.add_argument("-dsg", "--delete_subgenre", help="Удаляет поджанр из доступных. Чтобы добавить несколько, введите их речез запятую")
-    bookchars_parser.add_argument("-df", "--delete_form", help="Удаляет из формы доступных. Чтобы добавить несколько, введите их речез запятую")
-    bookchars_parser.add_argument("-rdg", "--reset_to_default_genres", help="Возвращает доступные жанры, поджанры и формы к дефолту, введите genres, subgenres или forms соотвественно")
+    bookchars_parser.add_argument("-ach", "--add_char", help="Добавляет новую характеристику в доступные. Чтобы добавить несколько, введите их речез запятую. Перед характеристиками укажите, что именно хотите обновить, введя перед списком добавлений 'жанр', 'поджанр' или 'форма'")
+    bookchars_parser.add_argument("-dch", "--delete_char", help="Удаляет характеристики из доступных. Чтобы удалить несколько, введите их речез запятую. Перед характеристиками укажите, что именно хотите обновить, введя перед списком добавлений 'жанр', 'поджанр' или 'форма'")
+    bookchars_parser.add_argument("-rch", "--reset_to_default_char", help="Возвращает доступные жанры, поджанры и формы к дефолту, введите 'жанр', 'поджанр' или 'форма' соотвественно")
     
     book_fields = ["title", "author", "form", "genre", "subgenre", "rating", "year", "review"]
     book_fields_ru = ["название", "автор(ы)", "жанр(ы)", "поджанр(ы)", "форма", "оценка", "год написания", "отзыв"]
     
     stack = []
+    current_book = None
+    current_library = None
+    current_filter = None 
 
-    
     console = Console()
     
     while True:
@@ -144,19 +149,19 @@ def main():
             else:
                 print("Ни одной библиотеки не создано")
         elif args.current_library:
-            try:
+            if current_library:
                 print(current_library.name)
-            except NameError:
+            else:
                 print("Библиотека не выбрана")
         elif args.current_book:
-            try:
+            if current_book:
                 print(current_book)
-            except NameError:
+            else:
                 print("Книга не выбрана")
         elif args.current_filter:
-            try:
+            if current_filter:
                 print(current_filter)
-            except NameError:
+            else:
                 print("Фильтр не настроен")
         elif args.current_stack:
             if len(stack) == 0:
@@ -177,7 +182,7 @@ def main():
                 stack.append(current_book)
         
         elif args.command == "book":
-            try:
+            if current_book:
                 if args.update_title:
                     current_book.title_update(args.update_title)
                 elif args.update_author:
@@ -194,19 +199,19 @@ def main():
                     current_book.year_update(args.update_year)
                 elif args.update_review:
                     current_book.review_update(args.update_review)
-            except UnboundLocalError:
+            else:
                 print("Книга не выбрана")
             
         elif args.command == "library":
             if args.create_or_choose_library:
                 current_library = Library(" ".join(args.create_or_choose_library))
             elif args.library_add:
-                try:
+                result = is_initialized({"библиотека": current_library, "книга": current_book})
+                if result:
                     current_library.book_add(current_book)
-                except NameError:
-                    print("Библиотека или книга не выбраны")
             elif args.library_filter:
-                try:
+                result = is_initialized({"библиотека": current_library, "фильтр": current_filter})
+                if result:
                     if args.exclusive:
                         books = current_library.filter_books(exclusive=True, **current_filter)
                     else:
@@ -227,10 +232,9 @@ def main():
                         else:
                             for book in books:
                                 print(book)     
-                except NameError:
-                    print("Библиотека или фильтр не выбраны")
             elif args.library_top:
-                try:
+                result = is_initialized({"библиотека": current_library, "фильтр": current_filter})
+                if result:
                     if args.exclusive:
                         top_books = current_library.finding_top(exclusive=True, top=args.library_top, **current_filter)
                     else:
@@ -251,10 +255,9 @@ def main():
                         else:
                             for book in top_books:
                                 print(book) 
-                except NameError:
-                    print("Бибиотека или фильтр не выбраны")
             elif args.library_fetch_book:
-                try:
+                result = is_initialized({"библиотека": current_library, "книга": current_book})
+                if result:
                     if set(list(current_filter.keys())) ==  set(["title", "author"]):
                         book = current_library.filter_books(**current_filter)
                         if len(book) >= 2:
@@ -268,83 +271,77 @@ def main():
                             print(f"Вы достали книгу {book[0]}")
                     else:
                         print("Фильтр должен содержать только автора и название")
-                except NameError:
-                    print("Библиотека или фильтр не выбраны")
             elif args.library_replace_book:
-                try:
+                result = is_initialized({"библиотека": current_library, "книга": current_book})
+                if result:
                     current_library.replace_book(current_book)
-                except NameError:
-                    print("Библиотека или книга не выбраны")
             elif args.library_delete_book:
-                try:
+                result = is_initialized({"библиотека": current_library, "книга": current_book})
+                if result:
                     title = current_filter["title"]
                     author = current_filter["author"] 
                     current_library.delete_book(**{title: author})
-                except NameError:
-                    print("Библиотека или книга не выбраны")
             elif args.library_add_stack:
                 if len(stack) == 0:
                     print("Стопка пуста")
                 else:
-                    try:
+                    if current_library:
                         for book_of_stack in stack:
                             current_library.book_add(book_of_stack)
-                    except NameError:
+                    else:
                         print("Библиотека не выбрана")
             elif args.library_rename:
-                try:
+                if current_library:
                     pathlib.Path(pathlib.Path.home() / f"Desktop/home_library/{current_library.name}.xlsx").rename(pathlib.Path.home() / f"Desktop/home_library/{args.library_rename}.xlsx")
-                except UnboundLocalError:
+                else:
                     print("Библиотека не выбрана")
                     
         elif args.command == "sharing":
-            try:
+            result = is_initialized({"библиотека": current_library, "фильтр": current_filter})
+            if result:
                 if args.exclusive:
                     books = current_library.filter_books(exclusive=True, **current_filter)
                 else:
                     books = current_library.filter_books(**current_filter)
                 if args.create_txt:
-                    path = pathlib.Path.home() / f"Desktop/{args.create_txt}.txt"
-                    if args.verbouse:
-                        with open(path, "w") as file:
-                            for book in books:
-                                file.write(f"{str(book)}\n")
+                    if len(books) == 0:
+                        print("Не удаловь найти книги, удовленворяющие запросу")
                     else:
-                        with open(path, "w") as file:
-                            for book in books:
-                                file.write(f"{book.author}. {book.title}\n")
+                        path = pathlib.Path.home() / f"Desktop/{args.create_txt}.txt"
+                        if args.verbouse:
+                            with open(path, "w") as file:
+                                for book in books:
+                                    file.write(f"{str(book)}\n")
+                        else:
+                            with open(path, "w") as file:
+                                for book in books:
+                                    file.write(f"{book.author}. {book.title}\n")
                 elif args.share_with_text:
-                    txt_content = ""
-                    if args.verbouse:
-                        for book in books:
-                            txt_content = txt_content + str(book) + "\n"
+                    if len(books) == 0:
+                        print("Не удаловь найти книги, удовленворяющие запросу")
                     else:
-                        for book in books:
-                            to_append = f"{book.author}. {book.title}"
-                            txt_content = txt_content + to_append + "\n"
-                    path = pathlib.Path.home() / f"Desktop/home_library/{current_library.name}_archive.zip"
-                    path_to_new = pathlib.Path.home() / f"Desktop/{args.share_with_text}.zip"
-                    with zipfile.ZipFile(path, "r") as archive, zipfile.ZipFile(path_to_new, "w") as new_zip:
-                        list_to_write = [book.title.replace(" ", "_") for book in books]
-                        for name_to_write in list_to_write:
-                            for file_temp in archive.namelist():
-                                if pathlib.Path(file_temp).stem == name_to_write:
-                                    file_data = archive.read(file_temp)
-                                    new_zip.writestr(file_temp, file_data)
-                        new_zip.writestr("Список литературы.txt", txt_content)
-            except NameError:
-                print("Библиотека или фильтр не выбраны")
+                        txt_content = ""
+                        if args.verbouse:
+                            for book in books:
+                                txt_content = txt_content + str(book) + "\n"
+                        else:
+                            for book in books:
+                                to_append = f"{book.author}. {book.title}"
+                                txt_content = txt_content + to_append + "\n"
+                        path = pathlib.Path.home() / f"Desktop/home_library/{current_library.name}_archive.zip"
+                        path_to_new = pathlib.Path.home() / f"Desktop/{args.share_with_text}.zip"
+                        with zipfile.ZipFile(path, "r") as archive, zipfile.ZipFile(path_to_new, "w") as new_zip:
+                            list_to_write = [book.title.replace(" ", "_") for book in books]
+                            for name_to_write in list_to_write:
+                                for file_temp in archive.namelist():
+                                    if pathlib.Path(file_temp).stem == name_to_write:
+                                        file_data = archive.read(file_temp)
+                                        new_zip.writestr(file_temp, file_data)
+                            new_zip.writestr("Список литературы.txt", txt_content)
 
         elif args.command == "stack":
             if args.stack_delete_book:
-                stack_copy = []
-                if len(stack) == 0:
-                    print("Стопка пуста")
-                else:
-                    for i in range(1, len(stack)+1):
-                        if i != args.stack_delete_book:
-                           stack_copy.append(stack[i-1])
-                    stack = stack_copy
+                stack_delete_book(stack, args.stack_delete_book)
             elif args.stack_clear:
                 stack = []
         
@@ -352,156 +349,46 @@ def main():
             current_filter = {key: vars(args)[key] for key in book_fields if key in vars(args)}
         
         elif args.command == "archive":
+            result = is_initialized({"книга": current_book, "библиотека": current_library})
             if args.add_to_archive:
-                try:
-                    name_file = current_book.title.replace(" ", "_")
-                    added_file_path = pathlib.Path.home() / f"Desktop/{name_file}.{args.add_to_archive}"
-                    with zipfile.ZipFile(str(pathlib.Path.home() / f"Desktop/home_library/{current_library.name.replace(" ", "_")}_archive.zip"), "a") as archive:
-                        archive.write(str(added_file_path), arcname=os.path.basename(str(added_file_path)))
-                except FileNotFoundError:
-                    print("Не удалось найти такой файл. Проверьте правильность названия и расширения")
+                if result:
+                    add_to_archive(current_book.title, current_library.name, args.add_to_archive)
             elif args.read_from_archive:
-                path_to_home = str(pathlib.Path.home() / "Desktop/home_library/")
-                try:
-                    extention = ""
-                    file_named = ""
-                    with zipfile.ZipFile(f"{path_to_home}/{current_library.name.replace(" ", "_")}_archive.zip", "r") as archive:
-                        list_of_files = archive.namelist()
-                        for text in list_of_files:
-                            name, ext = os.path.splitext(text)
-                            if name == current_book.title.replace(" ", "_"):
-                                extention = ext
-                                file_named = name
-                                archive.extract(f"{name}{extention}", path_to_home)
-                            else:
-                                pass
-                    path_to_text = f"{path_to_home}/{file_named}{extention}"
-                    if sys.platform == "win32":
-                        os.startfile(path_to_text)
-                    elif sys.platform == "darwin":
-                        subprocess.run(["open", path_to_text])
-                    else:
-                        subprocess.run(["xdg-open", path_to_text])
-                except FileNotFoundError:
-                    print("Тексты пока не добавлены в архив")
+                if result:
+                    read_from_archive(current_book.title, current_library.name)
             elif args.check_in_archive:
-                try:
-                    path_to_home = str(pathlib.Path.home() / "Desktop/home_library/")
-                    with zipfile.ZipFile(f"{path_to_home}/{current_library.name.replace(" ", "_")}_archive.zip", "r") as archive:
-                        list_of_names = archive.namelist()
-                        list_corrected = []
-                        for text in list_of_names:
-                            name, ext = os.path.splitext(text)
-                            list_corrected.append(name)
-                    if current_book.title.replace(" ", "_") in list_corrected:
-                        print("Книга в архиве")
-                    else:
-                        print("Книга не добавлена в архив")
-                except (NameError, FileNotFoundError):
-                    if NameError:
-                        print("Библиотека или книга не выбраны")
-                    elif FileNotFoundError:
-                        print("Тексты пока не добавлены в архив")
+                if result:
+                    check_in_archive(current_book.title, current_library.name)
                         
         elif args.command == "book_chars":
-            json_path = resources.files('library_manager') / 'book_chars.json'
-            
-            def adding_book_chars(form: str, to_add: list, add_singular: str, add_plural: str) -> None:
-                change = True
-                with json_path.open("r", encoding="utf-8") as file:
-                    book_chars = json.load(file)
-                if len(to_add) == 1:
-                    if to_add[0] in book_chars[form]:
-                        change = False
-                        print(f"Такой(ая) {add_singular} уже есть")
-                    else:
-                        book_chars[form].append(to_add[0])
-                else:
-                    same = list(set(book_chars[form]) & set(to_add))
-                    if len(same) == 0:
-                        book_chars[form].extend(to_add)
-                    else:
-                        to_add_final = [elem for elem in to_add if elem not in same]
-                        if to_add_final:
-                            book_chars[form].extend(to_add_final)
-                            print(f"Уже доступные {add_plural} исключены из добавления: {same}")
-                        else:
-                            change = False
-                            print(f"Все введенные {add_plural} уже доступны")
-                if change:
-                    with json_path.open("w", encoding="utf-8") as file:
-                        json.dump(book_chars, file, ensure_ascii=False)
-                    Book.update_chars()
-                    
-            def deleting_book_chars(form: str, to_delete: list, delete_singular: str, delete_plural: str) -> None:
-                change = True
-                with json_path.open("r", encoding="utf-8") as file:
-                    book_chars = json.load(file)
-                if len(to_delete) == 1:
-                    if to_delete[0] not in book_chars[form]:
-                        print(f"Такого(ой) {delete_singular} нет среди доступных")
-                        change = False
-                    else:
-                        book_chars[form].remove(to_delete[0])
-                else:
-                    same = list(set(book_chars[form]) & set(to_delete))
-                    if len(same) == len(to_delete):
-                        for el in same:
-                            book_chars[form].remove(el)
-                    else:
-                        to_delete_final = [genre for genre in to_delete if genre in same]
-                        if to_delete_final:
-                            different = [genre for genre in to_delete if genre not in same]
-                            for el in to_delete_final:
-                                book_chars[form].remove(el)
-                            print(f"Не существующие {delete_plural} не удалены: {different}")
-                        else:
-                            change = False
-                            print(f"Указанные {delete_plural} недоступны")
-                if change:
-                    with json_path.open("w", encoding="utf-8") as file:
-                        json.dump(book_chars, file, ensure_ascii=False)
-                    Book.update_chars()
-                    
-            def resetting_to_default(form: str) -> None:
-                with json_path.open("r", encoding="utf-8") as file:
-                    book_chars = json.load(file)
-                book_chars[form] = book_chars[f"{form}_OG"]
-                with json_path.open("w", encoding="utf-8") as file:
-                    json.dump(book_chars, file, ensure_ascii=False)
-                Book.update_chars()
-                
+            dict_chars = {"жанр": ["GENRES", "жанр", "жанры"], "поджанр": ["SUBGENRES", "поджанр", "поджанры"], 
+                          "форма": ["FORMS", "форма", "формы"]}
             if args.current_genres:
                 print(f"Допустимые на данный момент жанры:\n{', '.join(Book.GENRES)}")
             elif args.current_subgenres:
                 print(f"Допустимые на данный момент поджанры:\n{', '.join(Book.SUBGENRES)}")
             elif args.current_forms:
                 print(f"Допустимые на данный момент формы:\n{', '.join(Book.FORMS)}")
-            elif args.add_genre:
-                genre_to_add = [el.strip(" ").lower() for el in args.add_genre.split(",")]
-                adding_book_chars("GENRES", genre_to_add, "жанр", "жанры")
-            elif args.add_subgenre:
-                subgenre_to_add = [el.strip(" ").lower() for el in args.add_subgenre.split(",")]
-                adding_book_chars("SUBGENRES", subgenre_to_add, "поджанр", "поджанры")
-            elif args.add_form:
-                form_to_add = [el.strip(" ").lower() for el in args.add_form.split(",")]
-                adding_book_chars("FORMS", form_to_add, "форма", "формы")
-            elif args.delete_genre: 
-                genre_to_delete = [el.strip(" ").lower() for el in args.delete_genre.split(",")]
-                deleting_book_chars("GENRES", genre_to_delete, "жанр", "жанры")
-            elif args.delete_subgenre:
-                subgenre_to_delete = [el.strip(" ").lower() for el in args.delete_subgenre.split(",")]
-                deleting_book_chars("SUBGENRES", subgenre_to_delete, "поджанр", "поджанры")
-            elif args.delete_form:
-                form_to_delete = [el.strip(" ").lower() for el in args.delete_form.split(",")]
-                deleting_book_chars("FORMS", form_to_delete, "форма", "формы")
+            elif args.add_char:
+                type_of_char = [el.strip(" ").lower() for el in args.add_char.split(",")][0]
+                chars_to_add = [el.strip(" ").lower() for el in args.add_char.split(",")][1:]
+                if type_of_char.lower() in dict_chars.keys():
+                    adding_book_chars(dict_chars[type_of_char.lower()][0], chars_to_add, dict_chars[type_of_char.lower()][1], dict_chars[type_of_char.lower()][2])
+                else:
+                    print("Проверьте правильность написания введенной характеристики")
+            elif args.delete_char: 
+                type_of_char = [el.strip(" ").lower() for el in args.delete_char.split(",")][0]
+                chars_to_delete = [el.strip(" ").lower() for el in args.delete_char.split(",")]
+                if type_of_char.lower() in dict_chars.keys():
+                    deleting_book_chars(dict_chars[type_of_char.lower()][0], chars_to_delete, dict_chars[type_of_char.lower()][1], dict_chars[type_of_char.lower()][2])
+                else:
+                    print("Проверьте правильность написания введенной характеристики")
             elif args.reset_to_default:
-                if args.reset_to_default.upper() in ["GENRES", "SUBGENRES", "FORMS"]:
-                    resetting_to_default(args.reset_to_default.upper())
+                if args.reset_to_default.lower() in dict_chars:
+                    resetting_to_default(dict_chars[args.reset_to_default.lower()][0])
                 else:
                     print("Введено некорректное значение")
-            
-                
+                          
           
 if __name__ == "__main__":
     main()
