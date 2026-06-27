@@ -1,0 +1,4 @@
+.spyproject/
+library_manager/__pycache__/
+*.egg-info
+*.egg

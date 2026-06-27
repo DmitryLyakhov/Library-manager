@@ -4,18 +4,14 @@ from .library_classes import Book, Library
 from .misc_functions import is_initialized
 from .misc_functions import stack_delete_book
 from .misc_functions import add_to_archive, read_from_archive, check_in_archive
-from .misc_functions import json_path, adding_book_chars, deleting_book_chars, resetting_to_default
+from .misc_functions import adding_book_chars, deleting_book_chars, resetting_to_default
 import argparse
 import pathlib
 import shlex
-import os
 import zipfile
-import subprocess
-import sys
 from rich.console import Console
 from rich.table import Table
 from importlib import resources
-import json
 
 
 #TODO Фильтр по диапазону рейтинга и года
