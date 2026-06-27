@@ -17,18 +17,19 @@ class Book:
     SUBGENRES = book_chars["SUBGENRES"]
     FORMS = book_chars["FORMS"]
     def __init__(self, title: str, author: str, form: str = "", genre: str = "", subgenre: str = "", rating: int | float = 0, year: int = 0, review: str = "") -> None:
-        Book.CheckingRating(rating)
-        Book.CheckingGenre(genre)
-        Book.CheckingSubgenre(subgenre)
-        Book.CheckingForm(form)
-        self.title = title
-        self.author = author
-        self.form = form
-        self.genre = genre
-        self.subgenre = subgenre
-        self.rating = rating
-        self.year = year
-        self.review = review
+        check1 = Book.CheckingRating(rating)
+        check2 = Book.CheckingGenre(genre)
+        check3 = Book.CheckingSubgenre(subgenre)
+        check4 = Book.CheckingForm(form)
+        if sum(check1, check2, check3, check4) == 4:
+            self.title = title
+            self.author = author
+            self.form = form
+            self.genre = genre
+            self.subgenre = subgenre
+            self.rating = rating
+            self.year = year
+            self.review = review
     def __repr__(self) -> str:
         return (f"Title - {self.title}, author - {self.author}, form - {self.form}, " 
         f"genre - {self.genre}, rating - {self.rating}, year - {self.year}")
@@ -41,25 +42,27 @@ class Book:
     def author_update(self, author: str) -> None:
         self.author = author
     def form_update(self, form: str) -> None:
-        Book.CheckingForm(form)
-        self.form = form
+        if Book.CheckingForm(form):
+            self.form = form
     def genre_update(self, genre: str) -> None:
-        Book.CheckingGenre(genre)
-        self.genre = genre
+        if Book.CheckingGenre(genre):
+            self.genre = genre
     def rating_update(self, rating: int | float) -> None:
-        Book.CheckingRating(rating)
-        self.rating = rating
+        if Book.CheckingRating(rating):
+            self.rating = rating
     def year_update(self, year: int) -> None:
         self.year = year
     def review_update(self, review: str) -> None:
         self.review = review
     def subgenre_update(self, subgenre: str) -> None:
-        Book.CheckingSubgenre(subgenre)
-        self.subgenre = subgenre
+        if Book.CheckingSubgenre(subgenre):
+            self.subgenre = subgenre
     @staticmethod
     def CheckingRating(rating: int) -> None:
         if not isinstance(rating, (int, float)) or (rating>10 or rating<0):
             print("Оценка должна быть в диапазоне от 0 до 10 включительно")
+        else:
+            return True
     @staticmethod
     def CheckingGenre(genre: str) -> None:
         if genre is None:
@@ -73,6 +76,8 @@ class Book:
             else:
                 if genre_splitted[0] not in Book.GENRES and genre != "":
                     print("Неизвесный(е) жарнр(ы)")
+        else:
+            return True
     @staticmethod
     def CheckingSubgenre(subgenre: str) -> None:
         if subgenre is None:
@@ -81,17 +86,21 @@ class Book:
             subgenre_splitted = [el.strip(" ") for el in subgenre.split(",")]
             if len(subgenre_splitted) >= 2:
                 for elem in subgenre_splitted:
-                    if elem not in Book.GENRES:
+                    if elem not in Book.SUBGENRES:
                         print("Неизвесный(е) поджанр(ы)")
             else:
                 if subgenre_splitted[0] not in Book.SUBGENRES and subgenre != "":
                     print("Неизвесный(е) поджарнр(ы)")
+        else:
+            return True
     @staticmethod
     def CheckingForm(form: str) -> None:
         if form is None:
             form = ""
         if form not in Book.FORMS and form != "":
             print("Неизвестная форма")
+        else:
+            return True
     @classmethod
     def update_chars(cls) -> None:
         json_path = resources.files('library_manager') / 'book_chars.json'
@@ -121,7 +130,7 @@ class Library:
         wb, ws = self.openlibrary()
         not_dupl = True
         for i in range(2, ws.max_row+1):
-            if book.title == ws.cell(i, 1).value:
+            if book.title == ws.cell(i, 1).value and book.title == ws.cell(i, 2).value:
                 book_title = book.title
                 book_author = ws.cell(i, 2).value
                 book_elements = [ws.cell(i, k).value for k in range(3, Library.num_of_book_params+1)]
@@ -129,7 +138,7 @@ class Library:
                 other = dict(zip(book_args, book_elements))
                 BookDupli = Library.create_book_obj(book_title, book_author, **other)
                 not_dupl = False
-                print(f"Книга с таким названием уже есть в библиотеке: {str(BookDupli)}")
+                print(f"Книга с таким названием и автором уже есть в библиотеке: {str(BookDupli)}")
         book_row = ws.max_row+1
         if not_dupl:
             for i in range(1, Library.num_of_book_params+1):
@@ -186,8 +195,11 @@ class Library:
             for i in range(1, ws.max_row+1):
                 if ws.cell(i, 1).value == titles[cur_title] and ws.cell(i, 2).value == authors[cur_title]:
                     indexes.append(i)
-        for row in indexes[::-1]:
-            ws.delete_rows(row)
+        if indexes:
+            for row in indexes[::-1]:
+                ws.delete_rows(row)
+        else:
+            print("Такой книги в библиотеке не найдено")
         wb.save(Library.lib_path / f"{self.name}.xlsx")
     def replace_book(self, book: Book) -> None:
         wb, ws = Library.openlibrary(self)

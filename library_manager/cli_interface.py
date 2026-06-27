@@ -26,17 +26,17 @@ def main():
     |  |      |  |      |  |
     Вы зашли в менеджер личной библиотеки.
     Пока доступно создание только excel-библиотек
-    Для помощи введите -h. Для помощи по коммандам введите command_name -h. Опции вводятся в ковычках, кроме случаев, когда используются числа.
+    Для помощи введите -h. Для помощи по командам введите command_name -h. Опции вводятся в кавычках, кроме случаев, когда используются числа.
     """
     
     print(intro)
     
     description = """Домашняя библиотека. Для помощи с коммандой введите command_name -h. """
-    book_help = """Комманда для создания книги. Если вы хотите ввести после опции больше одного слова, то вводите их в ковычках"""
+    book_help = """Команда для создания книги. Если вы хотите ввести после опции больше одного слова, то вводите их в кавычках"""
     parser = argparse.ArgumentParser(description=description)
     subparser = parser.add_subparsers(dest="command")
-    library_parser = subparser.add_parser("library", help="Комманда для работы с библиотекой")
-    sharing_parser = subparser.add_parser("sharing", help="Комманда для того, чтобы поделиться фильтрованными книгами. Создает список или zip-файл")
+    library_parser = subparser.add_parser("library", help="Команда для работы с библиотекой")
+    sharing_parser = subparser.add_parser("sharing", help="Команда для того, чтобы поделиться фильтрованными книгами. Создает список или zip-файл")
     bookcreate_parser = subparser.add_parser("mkbook", help=book_help)
     filter_parser = subparser.add_parser("filter_set", help="Фильтр для поиска книги")
     book_parser = subparser.add_parser("book", help="Обновление харатеристик книги, с которой идет работа")
@@ -289,6 +289,8 @@ def main():
             elif args.library_rename:
                 if current_library:
                     pathlib.Path(pathlib.Path.home() / f"Desktop/home_library/{current_library.name}.xlsx").rename(pathlib.Path.home() / f"Desktop/home_library/{args.library_rename}.xlsx")
+                    pathlib.Path(pathlib.Path.home() / f"Desktop/home_library/{current_library.name.replace(" ", "_")}_archive.zip").rename(pathlib.Path.home() / f"Desktop/home_library/{args.library_rename.replace(" ", "_")}_archive.zip")
+                    current_library.name = args.library_rename
                 else:
                     print("Библиотека не выбрана")
                     
@@ -337,7 +339,7 @@ def main():
 
         elif args.command == "stack":
             if args.stack_delete_book:
-                stack_delete_book(stack, args.stack_delete_book)
+                stack = stack_delete_book(stack, args.stack_delete_book)
             elif args.stack_clear:
                 stack = []
         
