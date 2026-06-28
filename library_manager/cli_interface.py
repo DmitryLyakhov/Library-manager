@@ -12,9 +12,10 @@ import zipfile
 from rich.console import Console
 from rich.table import Table
 from importlib import resources
+import numpy as np
+import heapq
 
 
-#TODO Фильтр по диапазону рейтинга и года
 
 def main():
     intro = """
@@ -54,7 +55,7 @@ def main():
     library_parser.add_argument("-cl", "--create_or_choose_library", nargs="+", type=str, help = "Создает новую библиотеку в папке на рабочем столе или работает с уже существующей. Принимает название библиотеки, которое может быть введено без ковычек")
     library_parser.add_argument("-la", "--library_add", action="store_true", help="Добавляет книгу, с которой идет работа, в библиотеку")
     library_parser.add_argument("-lf", "--library_filter", action="store_true", help="Фильтрует библиотеку по фильтру, с которым идет работа")
-    library_parser.add_argument("-lt", "--library_top", type=int, help="Возвращает n самых высокооцененных книг, выбранных по фильтру, с которым идет работа")
+    library_parser.add_argument("-lt", "--library_top", type=int, help="Возвращает n самых высокооцененных книг, выбранных по фильтру, с которым идет работа. Укажите после library_filter")
     library_parser.add_argument("-ex", "--exclusive", action="store_true", help="В случае, если у произведения указано несколько жанров, поджанров или авторов, фильтрация и поиск самых высокооцененных книг будет производиться строго по указанным в фильтре параметрам. По дефолту выключен")
     library_parser.add_argument("-lfb", "--library_fetch_book", action="store_true", help="Находит и возвращает как настоющую книгу по фильтру, с которым идет работа. Фильтр должен содержать только автора и название")
     library_parser.add_argument("-ldb", "--library_delete_book", action="store_true", help="Удаляет книгу по фильтру, с которым идет работа. Фильтр должен содержать только автора и название")    
@@ -73,8 +74,8 @@ def main():
     bookcreate_parser.add_argument("-f", "--form", type=str, default=argparse.SUPPRESS, help="Форма. Допускает строго одино значение.")
     bookcreate_parser.add_argument("-g", "--genre", type=str, default=argparse.SUPPRESS, help="Жанр. Несколько жанров вводите через запятую.")
     bookcreate_parser.add_argument("-sg", "--subgenre", type=str, default=argparse.SUPPRESS, help="Поджанр. Несколько поджанров вводите через запятую.")
-    bookcreate_parser.add_argument("-r", "--rating", type=float, default=argparse.SUPPRESS, help="Оценка. Допускает число от 0 до 10.")
-    bookcreate_parser.add_argument("-y", "--year", type=int, default=argparse.SUPPRESS, help="Год издания, допускает одно число")
+    bookcreate_parser.add_argument("-r", "--rating", type=float, default=argparse.SUPPRESS, help="Оценка. Допускает число, целое или десятичное, от 0 до 10.")
+    bookcreate_parser.add_argument("-y", "--year", type=int, default=argparse.SUPPRESS, help="Год издания, допускает одно целое число")
     bookcreate_parser.add_argument("-rev", "--review", type=str, default=argparse.SUPPRESS, help="Отзыв")
     bookcreate_parser.add_argument("-st", "--stack", action="store_true", default=None, help = "Добавление созданной книги в стопку")
 
@@ -208,10 +209,47 @@ def main():
             elif args.library_filter:
                 result = is_initialized({"библиотека": current_library, "фильтр": current_filter})
                 if result:
-                    if args.exclusive:
-                        books = current_library.filter_books(exclusive=True, **current_filter)
+                    books = []
+                    rating_several_check = "rating" in current_filter and len(current_filter["rating"].split("-")) > 1
+                    year_several_check = "year" in current_filter and len(current_filter["year"].split("-")) > 1
+                    if rating_several_check:
+                        rating_several = [float(el.strip()) for el in current_filter["rating"].split("-")]
+                    if year_several_check:
+                        year_several = [int(el.strip()) for el in current_filter["year"].split("-")]
+                    filter_copy = current_filter.copy()
+                    if rating_several_check and year_several_check:
+                        del filter_copy["year"]
+                        del filter_copy["rating"]
+                        if args.exclusive:
+                            books_iter = current_library.filter_books(exclusive=True, **filter_copy)
+                        else:
+                            books_iter = current_library.filter_books(**filter_copy)
+                        for book in books_iter:
+                            if rating_several[0] <= book.rating <= rating_several[1] and year_several[0] <= book.year <= year_several[1]:
+                                books.append(book)
+                    elif rating_several_check:
+                        del filter_copy["rating"]         
+                        if args.exclusive:
+                            books_iter = current_library.filter_books(exclusive=True, **filter_copy)
+                        else:
+                            books_iter = current_library.filter_books(**filter_copy)
+                        for book in books_iter:
+                            if rating_several[0] <= book.rating <= rating_several[1]:
+                                books.append(book)
+                    elif year_several_check:
+                        del filter_copy["year"]       
+                        if args.exclusive:
+                            books_iter = current_library.filter_books(exclusive=True, **filter_copy)
+                        else:
+                            books_iter = current_library.filter_books(**filter_copy)
+                        for book in books_iter:
+                            if year_several[0] <= book.year <= year_several[1]:
+                                books.append(book)
                     else:
-                        books = current_library.filter_books(**current_filter)
+                        if args.exclusive:
+                            books= current_library.filter_books(exclusive=True, **current_filter)
+                        else:
+                            books = current_library.filter_books(**current_filter) 
                     if len(books) == 0:
                         print("Не удалось найти книги, удовлетворяющие запросу")
                     else:
@@ -231,25 +269,64 @@ def main():
             elif args.library_top:
                 result = is_initialized({"библиотека": current_library, "фильтр": current_filter})
                 if result:
-                    if args.exclusive:
-                        top_books = current_library.finding_top(exclusive=True, top=args.library_top, **current_filter)
+                    books = []
+                    rating_several_check = "rating" in current_filter and len(current_filter["rating"].split("-")) > 1
+                    year_several_check = "year" in current_filter and len(current_filter["year"].split("-")) > 1
+                    if rating_several_check:
+                        rating_several = [float(el.strip()) for el in current_filter["rating"].split("-")]
+                    if year_several_check:
+                        year_several = [int(el.strip()) for el in current_filter["year"].split("-")]
+                    filter_copy = current_filter.copy()
+                    if rating_several_check and year_several_check:
+                        del filter_copy["year"]
+                        del filter_copy["rating"]
+                        if args.exclusive:
+                            books_iter = current_library.filter_books(exclusive=True, **filter_copy)
+                        else:
+                            books_iter = current_library.filter_books(**filter_copy)
+                        for book in books_iter:
+                            if rating_several[0] <= book.rating <= rating_several[1] and year_several[0] <= book.year <= year_several[1]:
+                                books.append(book)
+                    elif rating_several_check:
+                        del filter_copy["rating"]         
+                        if args.exclusive:
+                            books_iter = current_library.filter_books(exclusive=True, **filter_copy)
+                        else:
+                            books_iter = current_library.filter_books(**filter_copy)
+                        for book in books_iter:
+                            if rating_several[0] <= book.rating <= rating_several[1]:
+                                books.append(book)
+                    elif year_several_check:
+                        del filter_copy["year"]       
+                        if args.exclusive:
+                            books_iter = current_library.filter_books(exclusive=True, **filter_copy)
+                        else:
+                            books_iter = current_library.filter_books(**filter_copy)
+                        for book in books_iter:
+                            if year_several[0] <= book.year <= year_several[1]:
+                                books.append(book)
                     else:
-                        top_books = current_library.finding_top(top=args.library_top, **current_filter)
-                    if len(top_books) == 0:
+                        if args.exclusive:
+                            books= current_library.filter_books(exclusive=True, **current_filter)
+                        else:
+                            books = current_library.filter_books(**current_filter)
+                    if args.library_top:
+                        books = heapq.nlargest(args.library_top, books, key = lambda book: book.rating)
+                    if len(books) == 0:
                         print("Не удалось найти книги, удовлетворяющие запросу")
                     else:
                         print(f"{'Удалось найти одну книгу' if len(books) == 1 else 'Удалось найти следующие книги:'}")
                         if args.table_format:
-                            table_top = Table(show_lines=True)
+                            table_filtered = Table(show_lines=True)
                             for field in book_fields_ru:
-                                table_top.add_column(field)
-                            for book in top_books:
-                                table_top.add_row(book.title, book.author, book.genre if book.genre not in ("", None) else 'не указан(ы)', 
+                                table_filtered.add_column(field)
+                            for book in books:
+                                table_filtered.add_row(book.title, book.author, book.genre if book.genre not in ("", None) else 'не указан(ы)', 
                                 book.subgenre if book.subgenre not in ("", None) else 'не указан(ы)', book.form if book.form not in ("", None) else 'не указана', 
                                 str(book.rating), str(book.year) if book.year != 0 else 'не указан', book.review if book.review not in ("", None) else 'не указан')
-                            console.print(table_top)
+                            console.print(table_filtered)
                         else:
-                            for book in top_books:
+                            for book in books:
                                 print(book) 
             elif args.library_fetch_book:
                 result = is_initialized({"библиотека": current_library, "книга": current_book})

@@ -4,7 +4,6 @@
 
 import openpyxl
 import pathlib
-import heapq
 from importlib import resources
 import json
 
@@ -16,19 +15,20 @@ class Book:
     GENRES = book_chars["GENRES"]
     SUBGENRES = book_chars["SUBGENRES"]
     FORMS = book_chars["FORMS"]
-    def __init__(self, title: str, author: str, form: str = "", genre: str = "", subgenre: str = "", rating: int | float = 0, year: int = 0, review: str = "") -> None:
+    def __init__(self, title: str, author: str, form: str = "", 
+                 genre: str = "", subgenre: str = "", rating: int | float = 0, year: int = 0, review: str = "") -> None:
         check1 = Book.CheckingRating(rating)
         check2 = Book.CheckingGenre(genre)
         check3 = Book.CheckingSubgenre(subgenre)
         check4 = Book.CheckingForm(form)
-        if sum(check1, check2, check3, check4) == 4:
+        if all([check1, check2, check3, check4]):
             self.title = title
             self.author = author
             self.form = form
             self.genre = genre
             self.subgenre = subgenre
-            self.rating = rating
-            self.year = year
+            self.rating = float(rating)
+            self.year = int(year)
             self.review = review
     def __repr__(self) -> str:
         return (f"Title - {self.title}, author - {self.author}, form - {self.form}, " 
@@ -58,47 +58,62 @@ class Book:
         if Book.CheckingSubgenre(subgenre):
             self.subgenre = subgenre
     @staticmethod
-    def CheckingRating(rating: int) -> None:
+    def CheckingRating(rating: int) -> bool:
         if not isinstance(rating, (int, float)) or (rating>10 or rating<0):
             print("Оценка должна быть в диапазоне от 0 до 10 включительно")
+            return False
         else:
             return True
     @staticmethod
-    def CheckingGenre(genre: str) -> None:
+    def CheckingGenre(genre: str) -> bool:
         if genre is None:
             genre = ""
         if genre != "":
-            genre_splitted = [el.strip(" ") for el in genre.split(",")]
+            genre_splitted = [el.strip().lower() for el in genre.split(",")]
             if len(genre_splitted) >= 2:
-                for elem in genre_splitted:
-                    if elem not in Book.GENRES:
-                        print("Неизвесный(е) жанр(ы)")
+                diff = list(set(genre_splitted) & set(Book.GENRES))
+                if len(diff) != len(genre_splitted):
+                    print("Неизвесный(е) жанр(ы)")
+                    return False
+                else:
+                    return True
+            elif genre_splitted[0] not in Book.GENRES:
+                    print("Неизвесный жанр")
+                    return False
             else:
-                if genre_splitted[0] not in Book.GENRES and genre != "":
-                    print("Неизвесный(е) жарнр(ы)")
+                return True
         else:
             return True
     @staticmethod
-    def CheckingSubgenre(subgenre: str) -> None:
+    def CheckingSubgenre(subgenre: str) -> bool:
         if subgenre is None:
             subgenre = ""
         if subgenre != "":
-            subgenre_splitted = [el.strip(" ") for el in subgenre.split(",")]
+            subgenre_splitted = [el.strip().lower() for el in subgenre.split(",")]
             if len(subgenre_splitted) >= 2:
-                for elem in subgenre_splitted:
-                    if elem not in Book.SUBGENRES:
-                        print("Неизвесный(е) поджанр(ы)")
+                diff = list(set(subgenre_splitted) & set(Book.SUBGENRES))
+                if len(diff) != len(subgenre_splitted):
+                    print("Неизвесный(е) поджанр(ы)")
+                    return False
+                else:
+                    return True
+            elif subgenre_splitted[0] not in Book.SUBGENRES:
+                    print("Неизвесный поджанр")
+                    return False
             else:
-                if subgenre_splitted[0] not in Book.SUBGENRES and subgenre != "":
-                    print("Неизвесный(е) поджарнр(ы)")
+                return True
         else:
             return True
     @staticmethod
-    def CheckingForm(form: str) -> None:
+    def CheckingForm(form: str) -> bool:
         if form is None:
             form = ""
-        if form not in Book.FORMS and form != "":
-            print("Неизвестная форма")
+        if form != "":
+            if form not in Book.FORMS:
+                print("Неизвестная форма")
+                return False
+            else:
+                return True
         else:
             return True
     @classmethod
@@ -112,6 +127,7 @@ class Book:
         
   
 class Library: 
+    """Репрезентация библиотеки"""
     lib_path = pathlib.Path.home() / "Desktop/home_library"
     book_dummy = Book("a", "b")
     num_of_book_params = len(list(vars(book_dummy).keys()))
@@ -130,7 +146,7 @@ class Library:
         wb, ws = self.openlibrary()
         not_dupl = True
         for i in range(2, ws.max_row+1):
-            if book.title == ws.cell(i, 1).value and book.title == ws.cell(i, 2).value:
+            if book.title == ws.cell(i, 1).value and book.author == ws.cell(i, 2).value:
                 book_title = book.title
                 book_author = ws.cell(i, 2).value
                 book_elements = [ws.cell(i, k).value for k in range(3, Library.num_of_book_params+1)]
@@ -215,10 +231,6 @@ class Library:
             for i in range(1, Library.num_of_book_params+1):
                 ws.cell(row[0], i).value = list(vars(book).values())[i-1]
         wb.save(Library.lib_path / f"{self.name}.xlsx")
-    def finding_top(self, top: int = 10, exclusive: bool = False, **kwargs: str | int | float) -> list[Book]:
-        books = self.filter_books(exclusive = exclusive, **kwargs)
-        top_books = heapq.nlargest(top, books, key = lambda book: book.rating)
-        return top_books
     def openlibrary(self) -> tuple[openpyxl.Workbook, openpyxl.Worksheet]:
         wb = openpyxl.load_workbook(Library.lib_path / f"{self.name}.xlsx")
         ws = wb.active
