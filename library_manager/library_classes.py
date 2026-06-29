@@ -7,6 +7,9 @@ import pathlib
 from importlib import resources
 import json
 
+class BookException(Exception):
+    pass
+
 class Book:
     """Репрезентация книги в библиотеке"""
     json_path = resources.files('library_manager') / 'book_chars.json'
@@ -17,19 +20,18 @@ class Book:
     FORMS = book_chars["FORMS"]
     def __init__(self, title: str, author: str, form: str = "", 
                  genre: str = "", subgenre: str = "", rating: int | float = 0, year: int = 0, review: str = "") -> None:
-        check1 = Book.CheckingRating(rating)
-        check2 = Book.CheckingGenre(genre)
-        check3 = Book.CheckingSubgenre(subgenre)
-        check4 = Book.CheckingForm(form)
-        if all([check1, check2, check3, check4]):
-            self.title = title
-            self.author = author
-            self.form = form
-            self.genre = genre
-            self.subgenre = subgenre
-            self.rating = float(rating)
-            self.year = int(year)
-            self.review = review
+        Book.CheckingRating(rating)
+        Book.CheckingGenre(genre)
+        Book.CheckingSubgenre(subgenre)
+        Book.CheckingForm(form)
+        self.title = title
+        self.author = author
+        self.form = form
+        self.genre = genre
+        self.subgenre = subgenre
+        self.rating = float(rating)
+        self.year = int(year)
+        self.review = review
     def __repr__(self) -> str:
         return (f"Title - {self.title}, author - {self.author}, form - {self.form}, " 
         f"genre - {self.genre}, rating - {self.rating}, year - {self.year}")
@@ -60,10 +62,7 @@ class Book:
     @staticmethod
     def CheckingRating(rating: int) -> bool:
         if not isinstance(rating, (int, float)) or (rating>10 or rating<0):
-            print("Оценка должна быть в диапазоне от 0 до 10 включительно")
-            return False
-        else:
-            return True
+            raise BookException("Оценка должна быть в диапазоне от 0 до 10 включительно")
     @staticmethod
     def CheckingGenre(genre: str) -> bool:
         if genre is None:
@@ -73,17 +72,9 @@ class Book:
             if len(genre_splitted) >= 2:
                 diff = list(set(genre_splitted) & set(Book.GENRES))
                 if len(diff) != len(genre_splitted):
-                    print("Неизвесный(е) жанр(ы)")
-                    return False
-                else:
-                    return True
+                    raise BookException("Неизвесный(е) жанр(ы)")
             elif genre_splitted[0] not in Book.GENRES:
-                    print("Неизвесный жанр")
-                    return False
-            else:
-                return True
-        else:
-            return True
+                    raise BookException("Неизвесный жанр")
     @staticmethod
     def CheckingSubgenre(subgenre: str) -> bool:
         if subgenre is None:
@@ -93,29 +84,17 @@ class Book:
             if len(subgenre_splitted) >= 2:
                 diff = list(set(subgenre_splitted) & set(Book.SUBGENRES))
                 if len(diff) != len(subgenre_splitted):
-                    print("Неизвесный(е) поджанр(ы)")
-                    return False
-                else:
-                    return True
+                    raise BookException("Неизвесный(е) поджанр(ы)")
             elif subgenre_splitted[0] not in Book.SUBGENRES:
-                    print("Неизвесный поджанр")
-                    return False
-            else:
-                return True
-        else:
-            return True
+                    raise BookException("Неизвесный поджанр")
     @staticmethod
     def CheckingForm(form: str) -> bool:
         if form is None:
             form = ""
         if form != "":
             if form not in Book.FORMS:
-                print("Неизвестная форма")
-                return False
-            else:
-                return True
-        else:
-            return True
+                raise BookException("Неизвестная форма")
+
     @classmethod
     def update_chars(cls) -> None:
         json_path = resources.files('library_manager') / 'book_chars.json'
